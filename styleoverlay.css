@@ -1,0 +1,39 @@
+body {
+  margin: 0;
+  padding: 10px;
+  color: white;
+  font-family: 'Consolas', 'Menlo', 'Monaco', 'Courier New', monospace, Arial, sans-serif;
+  font-size: 15px;
+  overflow: hidden;
+}
+
+#file-feed {
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+#border {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  border: 3px solid #00bfff;
+  border-radius: 10px;
+  box-sizing: border-box;
+  background: none !important;
+}
+
+.file-content-block {
+  background: rgba(0, 0, 0, 0.8);
+  color: green;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  width: 100%;
+  box-sizing: border-box;
+}

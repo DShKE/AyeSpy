@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Overlay Config</title>
+  <link rel='stylesheet' href='stylemain.css'>
+</head>
+<body>
+  <div class='bodytext'>
+    Configure the overlay settings below:
+  </div>
+  <div class='control-panel'>
+    <div class='checkbox-group'>
+      <label class='checkbox-label'>
+        <input type='checkbox' id='border-toggle'> Show Border
+      </label>
+      <label class='checkbox-label'>
+        <input type='checkbox' id='resizable'> Resizable
+      </label>
+      <label class='checkbox-label'>
+        <input type='checkbox' id='id-toggle'> Show IDs
+      </label>
+      <label class='checkbox-label'>
+        <input type='checkbox' id='overlay-toggle'> On
+      </label>
+    </div>
+    <button onclick='selectFile()'>Select Logfile to Watch</button>
+    <button onclick='showSessionHistory()'>Show Session History</button>
+    <button onclick='exportSessionHistory()'>Export Session History</button>
+    <button onclick='viewExportedSessionHistory()'>View Exported Session History</button>
+    <div class='position-control-group'>
+      <label>X (%): <input type='number' id='posX' min='0' max='100'></label>
+      <label>Y (%): <input type='number' id='posY' min='0' max='100'></label>
+      <button onclick='setOverlayPositionPercent()'>Set Overlay Position</button>
+    </div>
+    <div class='scroll-buttons-group'>
+      <button onclick='scrollOverlay("up")'>Scroll Overlay Up</button>
+      <button onclick='scrollOverlay("down")'>Scroll Overlay Down</button>
+    </div>
+  </div>
+  <div id='session-history-modal'>
+    <div class='modal-content'>
+      <button onclick='closeSessionHistory()' class='close-modal-button'>&times;</button>
+      <h3>Session History</h3>
+      <div id='session-history-content'></div>
+    </div>
+  </div>
+
+  <script>
+    // function called by the button to select a file to watch. waits for main process to return the file path and alerts the user
+    window.selectFile = async function() {
+      const path = await window.electronAPI.selectFile();
+      if (path) {
+        alert(`Watching file: ${path}`);
+      }
+    }
+
+    // function to set the overlay position based on percentage values from input fields. called from the set overlay position button
+    window.setOverlayPositionPercent = async function() {
+      const x = parseFloat(document.getElementById('posX').value);
+      const y = parseFloat(document.getElementById('posY').value);
+      if (!isNaN(x) && x >= 0 && x <= 100 && !isNaN(y) && y >= 0 && y <= 100) {
+        await window.electronAPI.setOverlayPositionPercent(x, y);
+      } else {
+        alert('Please enter X and Y as percentages between 0 and 100.');
+      }
+    }
+
+    // declare a function called by the scroll overlay buttons to scroll the overlay up or down by passing the direction as a parameter to the main process
+    window.scrollOverlay = function(direction) {
+      window.electronAPI.scrollOverlay(direction);
+    }
+
+    // declare a function called by the session history button 
+    // toggles the visibility of the session history modal by changing its class so the css styles can handle the visibility
+    window.showSessionHistory = async function() {
+      // fetch session history from the main process (saved during formatting log contents) and adds it to the modal content
+      const history = await window.electronAPI.getOverlayHistory();
+      const modal = document.getElementById('session-history-modal');
+      const content = document.getElementById('session-history-content');
+      if (Array.isArray(history) && history.length > 0) {
+        content.innerHTML = history.map(e => `<div class='session-history-item'>${e.content.replace(/\n/g, '<br>')}</div>`).join('');
+      } else {
+        content.innerHTML = '<i>No session events yet.</i>';
+      }
+      modal.classList.add('modal-visible');
+    }
+    window.closeSessionHistory = function() {
+      const modal = document.getElementById('session-history-modal');
+      modal.classList.remove('modal-visible');
+    }
+
+    // declare a function to export the session history to a text file called by the export session history button
+    window.exportSessionHistory = async function() {
+      const history = await window.electronAPI.getOverlayHistory();
+      if (!Array.isArray(history) || history.length === 0) {
+        alert('No session history to export.');
+        return;
+      }
+      const text = history.map(e => e.content).join('\n\n---\n\n');
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'session-history.txt';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    }
+
+    // declare a function to view the exported session history from a file selected by the user called by the view exported session history button
+    window.viewExportedSessionHistory = function() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.txt';
+      input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+          console.log('No file selected.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          const modal = document.getElementById('session-history-modal');
+          const content = document.getElementById('session-history-content');
+          content.innerHTML = `<pre class='exported-history-pre'>${evt.target.result.replace(/\n/g, '<br>')}</pre>`;
+          modal.classList.add('modal-visible');
+        };
+        reader.onerror = function(evt) {
+          console.error('Error reading file:', evt.target.error);
+          alert('Error reading file: ' + evt.target.error.name);
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    // add event listeners to checkboxes and pass the state when changed to the main process via the context bridge
+    document.getElementById('resizable').addEventListener('change', (event) => {
+      window.electronAPI.overlayResizable(event.target.checked);
+    });
+
+    document.getElementById('overlay-toggle').addEventListener('change', (event) => {
+      window.electronAPI.overlayOn(event.target.checked);
+    });
+
+    document.getElementById('border-toggle').addEventListener('change', (event) => {
+      window.electronAPI.overlayShowBorder(event.target.checked);
+    });
+
+    document.getElementById('id-toggle').addEventListener('change', (event) => {
+      window.electronAPI.toggleIds(event.target.checked);
+    });
+  </script>
+</body>
+</html>
