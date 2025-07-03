@@ -4,7 +4,6 @@
   <link rel='stylesheet' href='styleoverlay.css'>
 </head>
 <body>
-  <!-- create the two divs of the overlay: file feed and border -->
   <div id='file-feed'></div>
   <div id='border' style='display:none;'></div>
 
@@ -12,10 +11,42 @@
     // declare variables
     const fileFeed = document.getElementById('file-feed');
     const blockTimestamps = [];
-    const MAX_DISPLAYED_BLOCKS = 10;
-    const BLOCK_LIFETIME_MS = 60000;
-    let resizing = false;
-    let showingBorder = false;
+    let MAX_DISPLAYED_BLOCKS = 10;
+    let BLOCK_LIFETIME_MS = 60000;
+    document.body.style.cursor = 'default';
+    let isDragging = false;
+    let startScreenX = 0, startScreenY = 0;
+    let startWinX = 0, startWinY = 0;
+    let newX = 0, newY = 0;
+
+    // function to handle mouse movement during drag
+    async function handleMouseMove(event) {
+      if (!isDragging) return;
+      newX = startWinX + (event.screenX - startScreenX);
+      newY = startWinY + (event.screenY - startScreenY);
+      window.electronAPI.sendMousePos(newX, newY)
+    }
+
+    document.addEventListener('mousedown', async event => {
+        startScreenX = event.screenX;
+        startScreenY = event.screenY;
+        [startWinX, startWinY] = await window.electronAPI.getOverlayPosition()
+        document.addEventListener('mousemove', handleMouseMove);
+    });
+
+    document.addEventListener('mouseup', async event => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        window.electronAPI.overlayDragMouseUp(newX, newY);
+    });
+
+    window.electronAPI.onToggleDragOverlay((isDrag) => {
+      isDragging = isDrag;
+      if (isDragging) {
+        document.body.style.cursor = 'move';
+      } else {
+        document.body.style.cursor = 'default';
+      }
+    });
 
     // declare the scrollOverlay function
     function scrollOverlay(direction) {
@@ -25,11 +56,12 @@
         fileFeed.scrollTop = Math.min(fileFeed.scrollHeight, fileFeed.scrollTop + 80);
       }
     }
+    window.electronAPI.onScrollOverlay(scrollOverlay);
 
     // Set up event listeners for resizing and border visibility
     window.electronAPI.onToggleResizeBorder(isResize => {
       const border = document.getElementById('border');
-      if (border && !showingBorder) {
+      if (border) {
         border.style.display = isResize ? 'block' : 'none';
       }
     });
@@ -40,7 +72,6 @@
       if (border) {
         border.style.display = showBorder ? 'block' : 'none';
       }
-      showingBorder = showBorder; 
     });
 
     // set up event listener for file content updates that tags and appends new content to the file feed and removes old content if the maximum number of displayed blocks is reached
@@ -54,8 +85,8 @@
       while (blockTimestamps.length >= MAX_DISPLAYED_BLOCKS) {
         const { el } = blockTimestamps.shift();
         const prev = el.previousSibling;
-        if (prev && prev.tagName === 'BR') fileFeed.removeChild(prev); 
-        if (el.parentNode === fileFeed) fileFeed.removeChild(el); 
+        if (prev && prev.tagName === 'BR') fileFeed.removeChild(prev);
+        if (el.parentNode === fileFeed) fileFeed.removeChild(el);
       }
       if (fileFeed.children.length > 0) {
         fileFeed.appendChild(document.createElement('br'));
@@ -63,7 +94,7 @@
       const plcDiv = document.createElement('div');
       plcDiv.classList.add('file-content-block');
       plcDiv.textContent = entry.content;
-      plcDiv.dataset.id = entry.id; 
+      plcDiv.dataset.id = entry.id;
       fileFeed.appendChild(plcDiv);
       blockTimestamps.push({ id: entry.id, el: plcDiv, time: Date.now() });
       fileFeed.scrollTop = fileFeed.scrollHeight;
@@ -78,10 +109,18 @@
         if (prev && prev.tagName === 'BR') fileFeed.removeChild(prev);
         if (el.parentNode === fileFeed) fileFeed.removeChild(el);
       }
-    }, 1000); 
-    if (window.electronAPI && window.electronAPI.onScrollOverlay) {
-      window.electronAPI.onScrollOverlay(scrollOverlay);
-    }
+    }, 1000);
+    
+    // listen for updates to cull rate and max length from the main process
+    window.electronAPI.onUpdateOverlaySettings((settings) => {
+      if (settings.cullRate !== undefined) {
+        console.log(`Culling rate set to ${settings.cullRate} seconds`);
+        BLOCK_LIFETIME_MS = settings.cullRate * 1000;
+      }
+      if (settings.maxLength !== undefined) {
+        MAX_DISPLAYED_BLOCKS = settings.maxLength;
+      }
+    });
   </script>
 </body>
 </html>

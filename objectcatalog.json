@@ -1,5 +1,8 @@
 {
   "weapon": {
+    "utfl_melee_01": "FSK-8 Combat Knife",
+    "none_melee_01": "Prison Shiv",
+
     "klwe_rifle_energy_01": "Gallant Rifle",
     "klwe_smg_energy_01": "Lumin V SMG",
     "klwe_pistol_energy_01": "Arclight Pistol",
@@ -392,7 +395,7 @@
   },
 
   "damage": {
-    "VehicleDestruction": "Ship exploded",
+    "VehicleDestruction": "Ship Exploded",
     "SelfDestruct": "Self Destruct"
   }
 }
