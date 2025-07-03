@@ -10,28 +10,40 @@
   </div>
   <div class='control-panel'>
     <div class='checkbox-group'>
-      <label class='checkbox-label'>
-        <input type='checkbox' id='border-toggle'> Show Border
-      </label>
-      <label class='checkbox-label'>
-        <input type='checkbox' id='resizable'> Resizable
-      </label>
-      <label class='checkbox-label'>
-        <input type='checkbox' id='id-toggle'> Show IDs
-      </label>
-      <label class='checkbox-label'>
-        <input type='checkbox' id='overlay-toggle'> On
-      </label>
+      <div class='checkbox-row'>
+        <label class='checkbox-label'>
+          <input type='checkbox' id='border-toggle'> Show Border
+        </label>
+        <label class='checkbox-label'>
+          <input type='checkbox' id='resizable'> Resizable
+        </label>
+      </div>
+      <div class='checkbox-row'>
+        <label class='checkbox-label'>
+          <input type='checkbox' id='drag-overlay-toggle'> Draggable
+        </label>
+        <label class='checkbox-label'>
+          <input type='checkbox' id='id-toggle'> Show IDs
+        </label>
+        <label class='checkbox-label'>
+          <input type='checkbox' id='overlay-toggle'> On
+        </label>
+      </div>
+    </div>
+    <div class='position-control-group'>
+      <div class='control-item'>
+        <label for='cull-rate-input' class='checkbox-label'>Feed Cull Rate (seconds):</label>
+        <input type='number' id='cull-rate-input' min='1' value='60'>
+      </div>
+      <div class='control-item'>
+        <label for='max-length-input' class='checkbox-label'>Max Feed Length:</label>
+        <input type='number' id='max-length-input' min='1' value='10'>
+      </div>
     </div>
     <button onclick='selectFile()'>Select Logfile to Watch</button>
     <button onclick='showSessionHistory()'>Show Session History</button>
     <button onclick='exportSessionHistory()'>Export Session History</button>
     <button onclick='viewExportedSessionHistory()'>View Exported Session History</button>
-    <div class='position-control-group'>
-      <label>X (%): <input type='number' id='posX' min='0' max='100'></label>
-      <label>Y (%): <input type='number' id='posY' min='0' max='100'></label>
-      <button onclick='setOverlayPositionPercent()'>Set Overlay Position</button>
-    </div>
     <div class='scroll-buttons-group'>
       <button onclick='scrollOverlay("up")'>Scroll Overlay Up</button>
       <button onclick='scrollOverlay("down")'>Scroll Overlay Down</button>
@@ -46,113 +58,175 @@
   </div>
 
   <script>
-    // function called by the button to select a file to watch. waits for main process to return the file path and alerts the user
-    window.selectFile = async function() {
-      const path = await window.electronAPI.selectFile();
-      if (path) {
-        alert(`Watching file: ${path}`);
+  // function to enable or disable control checkboxes
+  function setCheckBoxesEnabled(enabled) {
+    ['border-toggle', 'resizable', 'drag-overlay-toggle', 'id-toggle'].forEach(id => {
+      document.getElementById(id).disabled = !enabled;
+      if (!enabled) document.getElementById(id).checked = false;
+    });
+    document.getElementById('cull-rate-input').disabled = !enabled;
+    document.getElementById('max-length-input').disabled = !enabled;
+  }
+
+  //disables all checkboxes except the one that was changed
+  function disableFor(changedId) {
+    const controls = {
+      'border-toggle': document.getElementById('border-toggle'),
+      'resizable': document.getElementById('resizable'),
+      'drag-overlay-toggle': document.getElementById('drag-overlay-toggle')
+  };
+
+  if (controls[changedId].checked) {
+    for (const id in controls) {
+      if (id !== changedId) {
+        controls[id].checked = false;
+        controls[id].disabled = true;
       }
     }
-
-    // function to set the overlay position based on percentage values from input fields. called from the set overlay position button
-    window.setOverlayPositionPercent = async function() {
-      const x = parseFloat(document.getElementById('posX').value);
-      const y = parseFloat(document.getElementById('posY').value);
-      if (!isNaN(x) && x >= 0 && x <= 100 && !isNaN(y) && y >= 0 && y <= 100) {
-        await window.electronAPI.setOverlayPositionPercent(x, y);
-      } else {
-        alert('Please enter X and Y as percentages between 0 and 100.');
-      }
+  } else {
+    for (const id in controls) {
+      controls[id].disabled = false;
     }
+  }
+}
 
-    // declare a function called by the scroll overlay buttons to scroll the overlay up or down by passing the direction as a parameter to the main process
-    window.scrollOverlay = function(direction) {
-      window.electronAPI.scrollOverlay(direction);
-    }
+  // at start, disable all except overlay-toggle
+  window.addEventListener('DOMContentLoaded', async () => { 
+    setCheckBoxesEnabled(false);
+    const settings = await window.electronAPI.getOverlaySettings();
+    document.getElementById('cull-rate-input').value = settings.cullRate || 60;
+    document.getElementById('max-length-input').value = settings.maxLength || 10;
+  });
 
-    // declare a function called by the session history button 
-    // toggles the visibility of the session history modal by changing its class so the css styles can handle the visibility
-    window.showSessionHistory = async function() {
-      // fetch session history from the main process (saved during formatting log contents) and adds it to the modal content
-      const history = await window.electronAPI.getOverlayHistory();
-      const modal = document.getElementById('session-history-modal');
-      const content = document.getElementById('session-history-content');
-      if (Array.isArray(history) && history.length > 0) {
-        content.innerHTML = history.map(e => `<div class='session-history-item'>${e.content.replace(/\n/g, '<br>')}</div>`).join('');
-      } else {
-        content.innerHTML = '<i>No session events yet.</i>';
-      }
-      modal.classList.add('modal-visible');
+  // function called by the button to select a file to watch. waits for main process to return the file path and alerts the user
+  window.selectFile = async function() {
+    const path = await window.electronAPI.selectFile();
+    if (path) {
+      alert(`Watching file: ${path}`);
     }
-    window.closeSessionHistory = function() {
-      const modal = document.getElementById('session-history-modal');
-      modal.classList.remove('modal-visible');
-    }
+  }
 
-    // declare a function to export the session history to a text file called by the export session history button
-    window.exportSessionHistory = async function() {
-      const history = await window.electronAPI.getOverlayHistory();
-      if (!Array.isArray(history) || history.length === 0) {
-        alert('No session history to export.');
+  // declare a function called by the scroll overlay buttons to scroll the overlay up or down by passing the direction as a parameter to the main process
+  window.scrollOverlay = function(direction) {
+    window.electronAPI.scrollOverlay(direction);
+  }
+
+  // declare a function called by the session history button 
+  // toggles the visibility of the session history modal by changing its class so the css styles can handle the visibility
+  window.showSessionHistory = async function() {
+    // fetch session history from the main process (saved during formatting log contents) and adds it to the modal content
+    const history = await window.electronAPI.getOverlayHistory();
+    const modal = document.getElementById('session-history-modal');
+    const content = document.getElementById('session-history-content');
+    if (Array.isArray(history) && history.length > 0) {
+      content.innerHTML = history.map(e => `<div class='session-history-item'>${e.content.replace(/\n/g, '<br>')}</div>`).join('');
+    } else {
+      content.innerHTML = '<i>No session events yet.</i>';
+    }
+    modal.classList.add('modal-visible');
+  }
+  window.closeSessionHistory = function() {
+    const modal = document.getElementById('session-history-modal');
+    modal.classList.remove('modal-visible');
+  }
+
+  // declare a function to export the session history to a text file called by the export session history button
+  window.exportSessionHistory = async function() {
+    const history = await window.electronAPI.getOverlayHistory();
+    if (!Array.isArray(history) || history.length === 0) {
+      alert('No session history to export.');
+      return;
+    }
+    const text = history.map(e => e.content).join('\n\n---\n\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'session-history.txt';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+  }
+
+  // declare a function to view the exported session history from a file selected by the user called by the view exported session history button
+  window.viewExportedSessionHistory = function() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt';
+    input.onchange = function(e) {
+      const file = e.target.files[0];
+      if (!file) {
+        console.log('No file selected.');
         return;
       }
-      const text = history.map(e => e.content).join('\n\n---\n\n');
-      const blob = new Blob([text], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'session-history.txt';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 100);
-    }
-
-    // declare a function to view the exported session history from a file selected by the user called by the view exported session history button
-    window.viewExportedSessionHistory = function() {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.txt';
-      input.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) {
-          console.log('No file selected.');
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          const modal = document.getElementById('session-history-modal');
-          const content = document.getElementById('session-history-content');
-          content.innerHTML = `<pre class='exported-history-pre'>${evt.target.result.replace(/\n/g, '<br>')}</pre>`;
-          modal.classList.add('modal-visible');
-        };
-        reader.onerror = function(evt) {
-          console.error('Error reading file:', evt.target.error);
-          alert('Error reading file: ' + evt.target.error.name);
-        };
-        reader.readAsText(file);
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const modal = document.getElementById('session-history-modal');
+        const content = document.getElementById('session-history-content');
+        content.innerHTML = `<pre class='exported-history-pre'>${evt.target.result.replace(/\n/g, '<br>')}</pre>`;
+        modal.classList.add('modal-visible');
       };
-      input.click();
+      reader.onerror = function(evt) {
+        console.error('Error reading file:', evt.target.error);
+        alert('Error reading file: ' + evt.target.error.name);
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  // listen for the overlay toggle checkbox state from the main process and set the checkbox state and enable/disable other checkboxes accordingly
+  window.electronAPI.makeOnBoxChecked((value) => {
+    document.getElementById('overlay-toggle').checked = value;
+    setCheckBoxesEnabled(value);
+  });
+
+  document.getElementById('overlay-toggle').addEventListener('change', (event) => {
+    window.electronAPI.overlayOn(event.target.checked);
+    setCheckBoxesEnabled(event.target.checked);
+  });
+
+  document.getElementById('resizable').addEventListener('change', (event) => {
+    disableFor('resizable');
+    window.electronAPI.overlayResizable(event.target.checked);
+  });
+
+  document.getElementById('border-toggle').addEventListener('change', (event) => {
+    disableFor('border-toggle');
+    window.electronAPI.overlayShowBorder(event.target.checked);
+  });
+
+  document.getElementById('drag-overlay-toggle').addEventListener('change', (event) => {
+    disableFor('drag-overlay-toggle');
+    window.electronAPI.overlayDragToggle(event.target.checked);
+  });
+
+  document.getElementById('id-toggle').addEventListener('change', (event) => {
+    window.electronAPI.toggleIds(event.target.checked);
+  });
+
+  document.getElementById('cull-rate-input').addEventListener('change', (event) => {
+    const cullRate = parseInt(event.target.value);
+    if (!isNaN(cullRate) && cullRate >= 1) {
+      window.electronAPI.updateOverlaySettings({ cullRate: cullRate });
+    } else {
+      event.target.value = 60;
+      window.electronAPI.updateOverlaySettings({ cullRate: 60 });
     }
+  });
 
-    // add event listeners to checkboxes and pass the state when changed to the main process via the context bridge
-    document.getElementById('resizable').addEventListener('change', (event) => {
-      window.electronAPI.overlayResizable(event.target.checked);
-    });
-
-    document.getElementById('overlay-toggle').addEventListener('change', (event) => {
-      window.electronAPI.overlayOn(event.target.checked);
-    });
-
-    document.getElementById('border-toggle').addEventListener('change', (event) => {
-      window.electronAPI.overlayShowBorder(event.target.checked);
-    });
-
-    document.getElementById('id-toggle').addEventListener('change', (event) => {
-      window.electronAPI.toggleIds(event.target.checked);
-    });
+  document.getElementById('max-length-input').addEventListener('change', (event) => {
+    const maxLength = parseInt(event.target.value);
+    if (!isNaN(maxLength) && maxLength >= 1) {
+      window.electronAPI.updateOverlaySettings({ maxLength: maxLength });
+    } else {
+      event.target.value = 10;
+      window.electronAPI.updateOverlaySettings({ maxLength: 10 });
+    }
+  });
   </script>
 </body>
 </html>
