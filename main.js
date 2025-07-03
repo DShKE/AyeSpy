@@ -7,24 +7,21 @@ if (require('electron-squirrel-startup')) {
 const chokidar = require('chokidar');
 const path = require('path');
 const fs = require('fs');
+const { strictEqual } = require('assert');
 
-let mainWindow, overlayWindow, tray, watcher, resizeTimeout;
+let mainWindow, overlayWindow, tray, watcher, parsedKiller;
 let fileContentChanges = [];
 let config = {
   watchPath: '',
-  overlayOn: false,
-  overlaySize: [],
-  overlayPosition: [],
-  cullRate: 60,
-  maxLength: 10,
+  overlayPositionPercent: { x: 50, y: 50 },
+  overlaySize: { width: 300, height: 200 }
 };
+let overlayOn = false;
 let isResizable = false;
-let ignoringMouseEvents = true;
+let showBorder = false;
 let objectCatalog = {}
 let showIds = false;
-let initialWidth, initialHeight, initialX, initialY;
 
-// load names of weapons and zones from objectcatalog.json
 try {
   const catalogPath = path.join(__dirname, 'objectcatalog.json');
   const data = fs.readFileSync(catalogPath, 'utf-8');
@@ -38,106 +35,78 @@ try {
   };
 }
 
+// get overlay position in pixels from percent
+function getOverlayPixelPosition(xPercent, yPercent, overlayWidth = 300, overlayHeight = 200) {
+  const display = screen.getPrimaryDisplay();
+  const { width, height } = display.workArea;
+  const centerX = Math.round((xPercent / 100) * width);
+  const centerY = Math.round((yPercent / 100) * height);
+  const x = centerX - Math.round(overlayWidth / 2);
+  const y = centerY - Math.round(overlayHeight / 2);
+  return { x, y };
+}
+
 // create main window
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 530,
-    height: 630,
+    width: 510,
+    height: 500,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true
     }
   });
-
   mainWindow.loadFile('main.html');
   mainWindow.on('minimize', (event) => {
     event.preventDefault();
     mainWindow.hide();
   });
-
   mainWindow.on('closed', () => {
     app.quit();
   });
 }
 
+// Sets common properties for the overlay window
 function setOverlayWindowProperties() {
-  const display = screen.getPrimaryDisplay();
-  const { width: screenWidth, height: screenHeight } = display.workAreaSize;
-
-  const defaultOverlayWidth = Math.round(screenWidth / 8);
-  const defaultOverlayHeight = Math.round(screenHeight / 8);
-
-  const defaultOverlayX = Math.round((screenWidth - defaultOverlayWidth) / 2);
-  const defaultOverlayY = Math.round((screenHeight - defaultOverlayHeight) / 2);
-
-  initialX = config.overlayPosition && config.overlayPosition[0] !== undefined ? config.overlayPosition[0] : defaultOverlayX;
-  initialY = config.overlayPosition && config.overlayPosition[1] !== undefined ? config.overlayPosition[1] : defaultOverlayY;
-
-  initialWidth = config.overlaySize && config.overlaySize[0] !== undefined ? config.overlaySize[0] : defaultOverlayWidth;
-  initialHeight = config.overlaySize && config.overlaySize[1] !== undefined ? config.overlaySize[1] : defaultOverlayHeight;
-
   if (overlayWindow) {
     overlayWindow.setResizable(isResizable);
-    overlayWindow.setIgnoreMouseEvents(ignoringMouseEvents);
+    overlayWindow.setIgnoreMouseEvents(!isResizable);
+    overlayWindow.webContents.send('toggle-resize-border', isResizable);
+    overlayWindow.webContents.send('make-show-border', showBorder);
     overlayWindow.setAlwaysOnTop(true, 'screen-saver');
-    overlayWindow.setPosition(initialX, initialY);
-    overlayWindow.setSize(initialWidth, initialHeight);
-    overlayWindow.webContents.send('send-overlay-settings', {
-      cullRate: config.cullRate,
-      maxLength: config.maxLength
-    });
   }
 }
 
+// create overlay window
 function createOverlayWindow() {
-  setOverlayWindowProperties();
   overlayWindow = new BrowserWindow({
-    // setting initial vales even though is in setOverlayWindowProperties because overlaywindow doesnt exist when setoverlayWindowProperties is called because
-    // setoverlayWindowProperties needs to be called before the overlay window is created so that the initial positions are calculated and applied during the creation of the overlay window
     frame: false,
     transparent: true,
+    alwaysOnTop: true,
     skipTaskbar: true,
-    width: initialWidth,
-    height: initialHeight,
-    x: initialX,
-    y: initialY,
-    resizable: false,
+    width: config.overlaySize.width,
+    height: config.overlaySize.height,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
     }
   });
-
-  // overlayWindow.webContents.openDevTools({ mode: 'detach' });
-
   overlayWindow.loadFile('overlay.html');
-
+  const { x, y } = getOverlayPixelPosition(config.overlayPositionPercent.x, config.overlayPositionPercent.y, config.overlaySize.width, config.overlaySize.height);
+  overlayWindow.setPosition(x, y);
   overlayWindow.on('closed', () => {
     overlayWindow = null;
   });
-
   overlayWindow.on('resize', () => {
-    if (resizeTimeout) clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      const [w, h] = overlayWindow.getSize();
-      config.overlaySize = [w, h];
-      config.overlayPosition = overlayWindow.getPosition();
-      saveConfig();
-    }, 500);
+    const [w, h] = overlayWindow.getSize();
+    config.overlaySize = { width: w, height: h };
+    overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+    saveConfig();
   });
-
+  setOverlayWindowProperties(); 
   overlayWindow.show();
-  // overlayWindow.focus();
-  
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.webContents.send('send-overlay-settings', {
-      cullRate: config.cullRate,
-      maxLength: config.maxLength,
-    });
-  overlayWindow.setAlwaysOnTop(true, 'screen-saver');
-  overlayWindow.setIgnoreMouseEvents(ignoringMouseEvents);
-  }
-} //end createOverlayWindow
+  overlayWindow.focus();
+}
 
 // create tray icon and menu
 function createTray() {
@@ -156,7 +125,7 @@ function createTray() {
       click: () => {
         if (overlayWindow) {
           overlayWindow.show();
-          // overlayWindow.focus();
+          overlayWindow.focus();
         } else {
           createOverlayWindow();
         }
@@ -185,27 +154,38 @@ function loadConfig() {
     const configPath = path.join(__dirname, 'config.json');
     if (fs.existsSync(configPath)) {
       const loadedConfig = JSON.parse(fs.readFileSync(configPath));
-       config = { ...config, ...loadedConfig };
+      config = { ...config, ...loadedConfig }; // Merge loaded config with defaults
     }
   } catch (error) {
     console.error('Error loading config:', error);
+  } finally {
+    // Ensure all config properties have valid defaults if not loaded
+    config.watchPath = config.watchPath || '';
+    config.overlayPositionPercent = config.overlayPositionPercent || { x: 50, y: 50 };
+    config.overlaySize = config.overlaySize || { width: 300, height: 200 };
+    if (typeof config.overlayPositionPercent.x !== 'number') config.overlayPositionPercent.x = 50;
+    if (typeof config.overlayPositionPercent.y !== 'number') config.overlayPositionPercent.y = 50;
+    if (typeof config.overlaySize.width !== 'number') config.overlaySize.width = 300;
+    if (typeof config.overlaySize.height !== 'number') config.overlaySize.height = 200;
   }
   startFileWatcher();
 }
 
 // save config to file
 function saveConfig() {
-  fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 2));
+  const { overlayOn, showBorder, isResizable, showIds,  ...toSave } = config; 
+  const configPath = path.join(__dirname, 'config.json');
+  fs.writeFileSync(configPath, JSON.stringify(toSave, null, 2)); 
 }
 
 // format actor death event from log line
 function parseAndFormatActorDeath(line) {
-  const regex = /<([^>]+)>.*<Actor Death> CActor::Kill: '([^']*)' \[(\d*)\] in zone '([^']*)' killed by '([^']*)' \[(\d*)\] using '([^']*)' \[Class ([^\]]*)\] with damage type '([^']*)'/;
+  const regex = /<([^>]+)> \[([^\]]+)\] <Actor Death> CActor::Kill: '([^']*)' \[(\d*)\] in zone '([^']*)' killed by '([^']*)' \[(\d*)\] using '([^']*)' \[Class ([^\]]*)\] with damage type '([^']*)' from direction x: ([^,]*), y: ([^,]*), z: ([^ ]*) \[([^\]]*)\]\[([^\]]*)\]/;
   const match = line.match(regex);
   if (!match) return null;
-  const [_, timestamp, victim, victimId, zone, killer, killerId, weapon, weaponClass, damageType] = match;
+  const [_, timestamp, eventtype, victim, victimId, zone, killer, killerId, weapon, weaponClass, damageType, x, y, z, team, actor] = match;
   const safeVal = (val, fallback = 'unknown') => (val && val.trim()) ? val : fallback;
-
+  
   let cleanWeapon = weaponClass;
   if (cleanWeapon == 'unknown' || cleanWeapon == '') {
     cleanWeapon = weapon.replace(/_[0-9]+$/, '').replace(/(_\d+)(_.*)?$/, '$1');
@@ -218,7 +198,6 @@ function parseAndFormatActorDeath(line) {
   // look for zone in objectcatalog first because some solar systems just are named like 'solarsystem_13579' and the numbers are cleaned with cleanzone
   cleanZone = objectCatalog.zone[zone] || objectCatalog.zone[cleanZone] || cleanZone.replace(/^([a-z][^_]*)_/, '').replace(/_/g, " ");
 
-  let parsedKiller;
   if (killer.length > 20 && /^PU_[a-zA-Z]{4,}.*_\d{13}$/.test(killer)) {
     parsedKiller = 'NPC'
   } else if (/^[a-zA-Z]{4,}(?:_[a-zA-Z]{4,})*_\d{13}$/.test(killer)) {
@@ -232,19 +211,20 @@ function parseAndFormatActorDeath(line) {
     let body = `💀 Killed by: ${safeVal(parsedKiller)}\n` +
     `🔫 Using: ${safeVal(cleanWeapon)}\n` +
     `💥 Damage: ${safeVal(cleanDamageType)}\n` +
-    `📍 Location: ${safeVal(cleanZone)}\n`;
+    `📍 Location: ${safeVal(cleanZone)}\n` +
+    `🧭 Direction: x=${safeVal(x, '?')}, y=${safeVal(y, '?')}, z=${safeVal(z, '?')}`;
 
     let time = `${new Date(safeVal(timestamp, Date.now())).toLocaleString()}\n`;
 
     let toReturn = '';
-
+    
     // test for regular npc (name longer than 20 char, starts with pu_ followed by 4 or more latin letters, followed by anthing, followed by _ followed by 13 numbers)
     if (victim.length > 20 && /^PU_[a-zA-Z]{4,}.*_\d{13}$/.test(victim)) {
       // is regular npc, if was killed in a vehicle explosion (pilot npc), put npc for the victim and follow up with all the details
         if (damageType === "VehicleDestruction") {
             toReturn = `${time}🪦 NPC\n${body}`;
         } else {
-          // regular, not pilot npc (same logic for killer ^^)
+          // regular, not pilot npc
           toReturn = `${time}🪦 NPC`
         }
     }
@@ -256,7 +236,7 @@ function parseAndFormatActorDeath(line) {
     else {
       toReturn = `${time}🪦 ${safeVal(victim)} ${showIds ? `(ID: ${safeVal(victimId)})` : ''}\n${body}`;
     }
-    return toReturn;
+    return toReturn; 
 }
 
 // start file watcher for log events
@@ -338,14 +318,26 @@ ipcMain.handle('select-file', async () => {
   }
 });
 
-// recieves messages from renderer process using on from preload
+//recieves messages from renderer process using on from preload
 ipcMain.on('toggle-resizable', (event, value) => {
-  ignoringMouseEvents = !value;
+  isResizable = value;
   if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.setResizable(value);
-    overlayWindow.setIgnoreMouseEvents(!value);
-    overlayWindow.webContents.send('toggle-resize-border', value);
+    overlayWindow.setResizable(isResizable);
+    overlayWindow.setIgnoreMouseEvents(!isResizable);
+    overlayWindow.webContents.send('toggle-resize-border', isResizable);
   }
+  saveConfig();
+});
+
+// sets overlay position based on screen percentage
+ipcMain.on('set-overlay-position-percent', (event, xPercent, yPercent) => {
+  config.overlayPositionPercent = { x: xPercent, y: yPercent };
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    const [overlayWidth, overlayHeight] = overlayWindow.getSize();
+    const { x, y } = getOverlayPixelPosition(xPercent, yPercent, overlayWidth, overlayHeight);
+    overlayWindow.setPosition(x, y);
+  }
+  saveConfig();
 });
 
 // processes overlay on event sent from main renderer process
@@ -353,19 +345,20 @@ ipcMain.on('overlay-on', (event, value) => {
   if (value) {
     if (!overlayWindow) {
       createOverlayWindow();
-    }
+    } 
     else if (overlayWindow && !overlayWindow.isDestroyed()) {
-      setOverlayWindowProperties();
       overlayWindow.show();
-      // overlayWindow.focus();
+      overlayWindow.focus();
+      setOverlayWindowProperties();
     }
-  }
+  } 
   else {
     if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.close();
-      overlayWindow = null;
+      overlayWindow = null; 
     }
   }
+  overlayOn = value; 
 });
 
 //show player ids
@@ -375,41 +368,13 @@ ipcMain.on('toggle-ids', (event, value) => {
 
 // relays the overlay show border event from main renderer process to the overlay renderer process
 ipcMain.on('overlay-show-border', (event, value) => {
+  showBorder = value;
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.webContents.send('make-show-border', value);
   }
 });
 
-// drag overlay enable / disable relay
-ipcMain.on('recieve-drag-overlay', (event, value) => {
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    ignoringMouseEvents = !value;
-    overlayWindow.setIgnoreMouseEvents(!value);
-    overlayWindow.webContents.send('toggle-drag-overlay', value);
-    overlayWindow.webContents.send('make-show-border', value);
-  }
-});
-
-// listen for drag move events from overlay renderer
-ipcMain.on('recieve-mouse-pos', (event, newX, newY) => {
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.setSize(initialWidth, initialHeight); // overlay window randomly resizes itself without this. temp fix. any value here works
-    overlayWindow.setPosition(Math.round(newX), Math.round(newY));
-  }
-});
-
-ipcMain.on('overlay-drag-end', (event, finalX, finalY) => {
-  config.overlayPosition = [Math.round(finalX), Math.round(finalY)];
-  saveConfig();
-});
-
-ipcMain.handle('get-overlay-position', (event) => {
-  if (overlayWindow && !overlayWindow.isDestroyed()) {
-    return overlayWindow.getPosition();
-  }
-});
-
-// the function invoked by the main renderer process through the context bridge to get the overlay history
+// the function invoked by the main renderer process through the context bridge to get the overlay history 
 ipcMain.handle('get-overlay-history', async () => {
   return Array.isArray(fileContentChanges) ? [...fileContentChanges] : [];
 });
@@ -417,49 +382,15 @@ ipcMain.handle('get-overlay-history', async () => {
 // relays scroll overlay events from the main renderer process to the overlay renderer process
 ipcMain.on('scroll-overlay', (event, direction) => {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.webContents.send('make-scroll-overlay', direction);
+    overlayWindow.webContents.send('scroll-overlay', direction);
   }
 });
 
-// handle update overlay cull rate settings from main renderer process
-// can be either cullrate *or* maxlength so check which one is recieved 
-ipcMain.on('update-overlay-settings', (event, settings) => {
-  let updated = false;
-  if (settings.cullRate !== undefined && typeof settings.cullRate === 'number' && settings.cullRate >= 1) {
-    config.cullRate = settings.cullRate;
-    updated = true;
-  }
-  if (settings.maxLength !== undefined && typeof settings.maxLength === 'number' && settings.maxLength >= 1) {
-    config.maxLength = settings.maxLength;
-    updated = true;
-  }
-  if (updated) {
-    saveConfig();
-    if (overlayWindow && !overlayWindow.isDestroyed()) {
-      overlayWindow.webContents.send('receive-overlay-settings', {
-        cullRate: config.cullRate,
-        maxLength: config.maxLength
-      });
-    }
-  }
-});
-
-ipcMain.handle('get-overlay-settings', async () => {
-  return {
-    cullRate: config.cullRate,
-    maxLength: config.maxLength
-  };
-});
-
-// activate all the stuff when the app is ready
+// activate all the stuff wheb the app is ready
 app.whenReady().then(() => {
-  loadConfig();
   createMainWindow();
   createTray();
-  if (config.overlayOn) {
-    createOverlayWindow();
-    mainWindow.webContents.send('make-on-box-checked', true);
-  }
+  loadConfig(); 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
