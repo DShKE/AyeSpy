@@ -466,9 +466,8 @@ app.whenReady().then(() => {
     return;
   }
   app.on('second-instance', (event, commandLine, workingDirectory) => { 
-    if (mainWindow) { 
-      if (mainWindow.isMinimized()) mainWindow.restore(); 
-      mainWindow.focus(); 
+    if (mainWindow) {
+      mainWindow.show();
     }
   });
   loadConfig();
