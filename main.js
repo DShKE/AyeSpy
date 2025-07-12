@@ -458,7 +458,19 @@ ipcMain.handle('get-overlay-settings', async () => {
 });
 
 // activate all the stuff when the app is ready
+// allow only single instance of the app
 app.whenReady().then(() => {
+  const gotLock = app.requestSingleInstanceLock(); 
+  if (!gotLock) { 
+    app.quit();
+    return;
+  }
+  app.on('second-instance', (event, commandLine, workingDirectory) => { 
+    if (mainWindow) { 
+      if (mainWindow.isMinimized()) mainWindow.restore(); 
+      mainWindow.focus(); 
+    }
+  });
   loadConfig();
   createMainWindow();
   createTray();
