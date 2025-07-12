@@ -49,6 +49,7 @@ function createMainWindow() {
     }
   });
 
+  // mainWindow.webContents.openDevTools({ mode: 'detach' });
   mainWindow.loadFile('main.html');
   mainWindow.on('minimize', (event) => {
     event.preventDefault();
@@ -60,6 +61,8 @@ function createMainWindow() {
   });
 }
 
+
+// function to set initial positions and sizes of the overlay window
 function setOverlayWindowProperties() {
   const display = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = display.workAreaSize;
@@ -126,9 +129,7 @@ function createOverlayWindow() {
     }, 500);
   });
 
-  overlayWindow.show();
-  // overlayWindow.focus();
-  
+  overlayWindow.show();  
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.webContents.send('send-overlay-settings', {
       cullRate: config.cullRate,
@@ -156,7 +157,6 @@ function createTray() {
       click: () => {
         if (overlayWindow) {
           overlayWindow.show();
-          // overlayWindow.focus();
         } else {
           createOverlayWindow();
         }
@@ -353,10 +353,14 @@ ipcMain.on('overlay-on', (event, value) => {
   if (value) {
     if (!overlayWindow) {
       createOverlayWindow();
+      config.overlayOn = true;
+      saveConfig();
     }
     else if (overlayWindow && !overlayWindow.isDestroyed()) {
       setOverlayWindowProperties();
       overlayWindow.show();
+      config.overlayOn = true;
+      saveConfig();
       // overlayWindow.focus();
     }
   }
@@ -364,6 +368,8 @@ ipcMain.on('overlay-on', (event, value) => {
     if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.close();
       overlayWindow = null;
+      config.overlayOn = false;
+      saveConfig();
     }
   }
 });
@@ -425,18 +431,18 @@ ipcMain.on('scroll-overlay', (event, direction) => {
 // can be either cullrate *or* maxlength so check which one is recieved 
 ipcMain.on('update-overlay-settings', (event, settings) => {
   let updated = false;
-  if (settings.cullRate !== undefined && typeof settings.cullRate === 'number' && settings.cullRate >= 1) {
+  if (settings.cullRate !== undefined && typeof settings.cullRate === 'number' && (settings.cullRate >= 1 || settings.cullRate == -1)) {
     config.cullRate = settings.cullRate;
     updated = true;
   }
-  if (settings.maxLength !== undefined && typeof settings.maxLength === 'number' && settings.maxLength >= 1) {
+  if (settings.maxLength !== undefined && typeof settings.maxLength === 'number' && (settings.maxLength >= 1 || settings.maxLength == -1)) {
     config.maxLength = settings.maxLength;
     updated = true;
   }
   if (updated) {
     saveConfig();
     if (overlayWindow && !overlayWindow.isDestroyed()) {
-      overlayWindow.webContents.send('receive-overlay-settings', {
+      overlayWindow.webContents.send('send-overlay-settings', {
         cullRate: config.cullRate,
         maxLength: config.maxLength
       });

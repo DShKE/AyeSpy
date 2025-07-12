@@ -210,7 +210,7 @@
 
   document.getElementById('cull-rate-input').addEventListener('change', (event) => {
     const cullRate = parseInt(event.target.value);
-    if (!isNaN(cullRate) && cullRate >= 1) {
+    if (!isNaN(cullRate) && (cullRate >= 1 || cullRate == -1)) {
       window.electronAPI.updateOverlaySettings({ cullRate: cullRate });
     } else {
       event.target.value = 60;
@@ -220,7 +220,7 @@
 
   document.getElementById('max-length-input').addEventListener('change', (event) => {
     const maxLength = parseInt(event.target.value);
-    if (!isNaN(maxLength) && maxLength >= 1) {
+    if (!isNaN(maxLength) && (maxLength >= 1 || maxLength == -1)) {
       window.electronAPI.updateOverlaySettings({ maxLength: maxLength });
     } else {
       event.target.value = 10;

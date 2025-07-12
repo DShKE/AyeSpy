@@ -11,8 +11,8 @@
     // declare variables
     const fileFeed = document.getElementById('file-feed');
     const blockTimestamps = [];
-    let MAX_DISPLAYED_BLOCKS = 10;
-    let BLOCK_LIFETIME_MS = 60000;
+    let maxBlocks = 10;
+    let blockLifetime = 60000;
     document.body.style.cursor = 'default';
     let isDragging = false;
     let startScreenX = 0, startScreenY = 0;
@@ -74,6 +74,16 @@
       }
     });
 
+    function cullOverlayToMaxLength() {
+      if (maxBlocks == -1) return;
+      while (blockTimestamps.length > maxBlocks) {
+        const { el } = blockTimestamps.shift();
+        const prev = el.previousSibling;
+        if (prev && prev.tagName === 'BR') fileFeed.removeChild(prev);
+        if (el.parentNode === fileFeed) fileFeed.removeChild(el);
+      }
+    }
+
     // set up event listener for file content updates that tags and appends new content to the file feed and removes old content if the maximum number of displayed blocks is reached
     // recall: this function is called when the main process sends the formatted log contents to the renderer process
     window.electronAPI.onFileContentUpdate((dataArray) => {
@@ -82,12 +92,6 @@
       if (!entry) return;
       const existingBlock = Array.from(fileFeed.children).find(child => child.dataset.id === entry.id);
       if (existingBlock) return;
-      while (blockTimestamps.length >= MAX_DISPLAYED_BLOCKS) {
-        const { el } = blockTimestamps.shift();
-        const prev = el.previousSibling;
-        if (prev && prev.tagName === 'BR') fileFeed.removeChild(prev);
-        if (el.parentNode === fileFeed) fileFeed.removeChild(el);
-      }
       if (fileFeed.children.length > 0) {
         fileFeed.appendChild(document.createElement('br'));
       }
@@ -98,12 +102,14 @@
       fileFeed.appendChild(plcDiv);
       blockTimestamps.push({ id: entry.id, el: plcDiv, time: Date.now() });
       fileFeed.scrollTop = fileFeed.scrollHeight;
+      cullOverlayToMaxLength();
     });
 
     // set up a timer to remove old entries
     setInterval(() => {
+      if (blockLifetime == -1000) return; 
       const now = Date.now();
-      while (blockTimestamps.length > 0 && now - blockTimestamps[0].time > BLOCK_LIFETIME_MS) {
+      while (blockTimestamps.length > 0 && now - blockTimestamps[0].time > blockLifetime) {
         const { el } = blockTimestamps.shift();
         const prev = el.previousSibling;
         if (prev && prev.tagName === 'BR') fileFeed.removeChild(prev);
@@ -114,11 +120,11 @@
     // listen for updates to cull rate and max length from the main process
     window.electronAPI.onUpdateOverlaySettings((settings) => {
       if (settings.cullRate !== undefined) {
-        console.log(`Culling rate set to ${settings.cullRate} seconds`);
-        BLOCK_LIFETIME_MS = settings.cullRate * 1000;
+        blockLifetime = settings.cullRate * 1000;
       }
       if (settings.maxLength !== undefined) {
-        MAX_DISPLAYED_BLOCKS = settings.maxLength;
+        maxBlocks = settings.maxLength;
+        cullOverlayToMaxLength();
       }
     });
   </script>
