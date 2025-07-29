@@ -97,7 +97,7 @@
       }
       const plcDiv = document.createElement('div');
       plcDiv.classList.add('file-content-block');
-      plcDiv.textContent = entry.content;
+      plcDiv.innerHTML = entry.content;
       plcDiv.dataset.id = entry.id;
       fileFeed.appendChild(plcDiv);
       blockTimestamps.push({ id: entry.id, el: plcDiv, time: Date.now() });

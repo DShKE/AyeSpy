@@ -61,7 +61,6 @@ function createMainWindow() {
   });
 }
 
-
 // function to set initial positions and sizes of the overlay window
 function setOverlayWindowProperties() {
   const display = screen.getPrimaryDisplay();
@@ -199,7 +198,9 @@ function saveConfig() {
 }
 
 // format actor death event from log line
+//.replace(/ /g, '&nbsp;');
 function parseAndFormatActorDeath(line) {
+  const spacr = x => x.replace(/ /g, '&nbsp;');
   const regex = /<([^>]+)>.*<Actor Death> CActor::Kill: '([^']*)' \[(\d*)\] in zone '([^']*)' killed by '([^']*)' \[(\d*)\] using '([^']*)' \[Class ([^\]]*)\] with damage type '([^']*)'/;
   const match = line.match(regex);
   if (!match) return null;
@@ -212,50 +213,46 @@ function parseAndFormatActorDeath(line) {
   } else {
     cleanWeapon = weaponClass.replace(/(_\d+)(_.*)?$/, '$1');
   }
-  cleanWeapon = objectCatalog.weapon[cleanWeapon] || cleanWeapon;
+  cleanWeapon = spacr(objectCatalog.weapon[cleanWeapon] || cleanWeapon).replace(/-/g, '&#8209;');
 
   let cleanZone = zone.replace(/_\d+$/, '').replace(/_BIS\d+$/, '').replace(/_Exec.*/, '');
-  // look for zone in objectcatalog first because some solar systems just are named like 'solarsystem_13579' and the numbers are cleaned with cleanzone
-  cleanZone = objectCatalog.zone[zone] || objectCatalog.zone[cleanZone] || cleanZone.replace(/^([a-z][^_]*)_/, '').replace(/_/g, " ");
+  // look for zone in objectcatalog first because some solar systems just are named like 'solarsystem_13579' and the numbers are cleaned with cleanzone before looking it up
+  cleanZone = spacr(objectCatalog.zone[zone] || objectCatalog.zone[cleanZone] || cleanZone.replace(/^([a-z][^_]*)_/, '').replace(/_/g, ' '));
 
   let parsedKiller;
   if (killer.length > 20 && /^PU_[a-zA-Z]{4,}.*_\d{13}$/.test(killer)) {
-    parsedKiller = 'NPC'
+    parsedKiller = 'NPC '
   } else if (/^[a-zA-Z]{4,}(?:_[a-zA-Z]{4,})*_\d{13}$/.test(killer)) {
     parsedKiller = killer.replace(/_\d{13}$/, '')
   } else{
-    parsedKiller = `${killer} ${showIds? `(ID: ${killerId})` : ''}`
+    parsedKiller = `${killer} ${showIds? `<wbr>(ID: ${killerId}) ` : ''}`
   }
+  parsedKiller = spacr(parsedKiller);
 
-  let cleanDamageType = objectCatalog.damage[damageType] || damageType;
+  let cleanDamageType = spacr(objectCatalog.damage[damageType] || damageType);
 
-    let body = `💀 Killed by: ${safeVal(parsedKiller)}\n` +
-    `🔫 Using: ${safeVal(cleanWeapon)}\n` +
-    `💥 Damage: ${safeVal(cleanDamageType)}\n` +
-    `📍 Location: ${safeVal(cleanZone)}\n`;
-
-    let time = `${new Date(safeVal(timestamp, Date.now())).toLocaleString()}\n`;
+    let time = spacr(`${new Date(safeVal(timestamp, Date.now())).toLocaleString()}`);
 
     let toReturn = '';
 
     // test for regular npc (name longer than 20 char, starts with pu_ followed by 4 or more latin letters, followed by anthing, followed by _ followed by 13 numbers)
     if (victim.length > 20 && /^PU_[a-zA-Z]{4,}.*_\d{13}$/.test(victim)) {
       // is regular npc, if was killed in a vehicle explosion (pilot npc), put npc for the victim and follow up with all the details
-        if (damageType === "VehicleDestruction") {
-            toReturn = `${time}🪦 NPC\n${body}`;
+        if (damageType === 'VehicleDestruction') {
+            toReturn = `<span style='color:#aaa;'>${time}\n🪦 NPC in ${safeVal(cleanZone)}</span>`;
         } else {
           // regular, not pilot npc (same logic for killer ^^)
-          toReturn = `${time}🪦 NPC`
+          toReturn = `<span style='color:#aaa;'>${time}\n🪦 NPC</span>`
         }
     }
     // if not a regular npc, check for animal (letters in groups of 4 or more, separated by underscores, followed by _ followed by 13 numbers)
     else if (/^[a-zA-Z]{4,}(?:_[a-zA-Z]{4,})*_\d{13}$/.test(victim)){
-        toReturn = `${time}🪦 ${victim.replace(/_\d{13}$/, '').replace(/_/g, ' ')}`;
+        toReturn = `<span style='color:#aaa;'>${time}\n🪦 ${victim.replace(/_\d{13}$/, '').replace(/_/g, ' ')}</span>`;
     }
     // not regular npc or animal (player)
     else {
-      toReturn = `${time}🪦 ${safeVal(victim)} ${showIds ? `(ID: ${safeVal(victimId)})` : ''}\n${body}`;
-    }
+        toReturn = `<span style='color:#aaa;'>${time}</span>\n💀&nbsp;<span style='color:#f94144;'>${safeVal(victim)}&nbsp;${showIds ? `<wbr>(ID:&nbsp;${safeVal(victimId)}) ` : ''}</span><wbr>was&nbsp;killed&nbsp;by&nbsp;<span style='color:#577590;'>${safeVal(parsedKiller)}</span><wbr>using&nbsp;<span style='color:#277da1;'>${safeVal(cleanWeapon)}</span> in&nbsp;<span style='color:#43aa8b;'>${safeVal(cleanZone)}</span> by&nbsp;<span style='color:#f3722c;'>${safeVal(cleanDamageType)}</span>`;
+      }
     return toReturn;
 }
 

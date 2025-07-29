@@ -396,7 +396,7 @@
   },
 
   "damage": {
-    "VehicleDestruction": "Ship Exploded",
+    "VehicleDestruction": "Ship Exploding",
     "SelfDestruct": "Self Destruct"
   }
 }
