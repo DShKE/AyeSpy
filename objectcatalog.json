@@ -19,6 +19,9 @@
     "volt_rifle_energy_01": "Parallax Rifle",
     "volt_shotgun_energy_01": "Prism Shotgun",
     "volt_smg_energy_01": "Quartz SMG",
+    "volt_pistol_energy_01": "Pulse Pistol",
+    "volt_sniper_energy_01": "Zenith Sniper Rifle",
+    "volt_lmg_energy_01": "Fresnel LMG",
 
     "apar_special_ballistic_02": "Animus Missile Launcher",
     "apar_special_ballistic_01": "Scourge Railgun",
@@ -48,7 +51,8 @@
 
     "none_shotgun_ballistic_01": "Deadrig Shotgun",
     "none_smg_energy_01": "Ripper SMG",
-
+    "none_rifle_multi_01": "Killshot Rifle",
+    "none_lmg_ballistic_01": "Killshot LMG",
 
 
     "KLWE_LaserRepeater_S1": "Bulldog Repeater",
@@ -192,7 +196,10 @@
   },
 
   "zone": {
+    "GLSN_Shiv": "Shiv",
+
     "ANVL_Arrow": "Arrow",
+    "ANVL_Paladin": "Paladin",
     "ANVL_Hornet_F7A_Mk2": "Military Hornet Mk2",
     "ANVL_Hornet_F7CM_Mk2": "Super Hornet Mk2",
     "ANVL_Hornet_F7C_Mk2": "Hornet Base Mk2",
@@ -225,9 +232,11 @@
     "ANVL_Terrapin": "Terrapin",
     "ANVL_Terrapin_Medic": "Terrapin Medic",
     "ANVL_Valkyrie": "Valkyrie",
+
     "XIAN_Scout": "Khartu-al",
     "XIAN_Nox": "Nox",
     "XNAA_SanTokYai": "San'tok.yai",
+
     "ARGO_ATLS": "ATLS",
     "ARGO_ATLS_IKTI": "ATLS Ikti",
     "ARGO_ATLS_IKTI_ARGOS": "ATLS Ikti Rad",
@@ -238,7 +247,9 @@
     "ARGO_MPUV_1T": "MPUV Tractor",
     "ARGO_RAFT": "Raft",
     "ARGO_SRV": "SRV",
+
     "BANU_Defender": "Defender",
+
     "CNOU_HoverQuad": "HoverQuad",
     "CNOU_Mustang_Alpha": "Mustang Alpha",
     "CNOU_Mustang_Alpha_Delta": "Mustang Delta",
@@ -246,6 +257,7 @@
     "CNOU_Mustang_Beta": "Mustang Beta",
     "CNOU_Mustang_Omega": "Mustang Omega",
     "CNOU_Nomad": "Nomad",
+
     "CRUS_Spirit_A1": "A1 Spirit",
     "CRUS_Spirit_C1": "C1 Spirit",
     "CRUS_Starlifter_A2": "A2 Hercules Starlifter",
@@ -255,6 +267,7 @@
     "CRUS_Starfighter_Ion": "Ares Starfighter Ion",
     "CRUS_Intrepid": "Intrepid",
     "CRUS_Star_Runner": "Mercury Star Runner",
+
     "DRAK_Buccaneer": "Buccaneer",
     "DRAK_Caterpillar": "Caterpillar",
     "DRAK_Corsair": "Corsair",
@@ -272,21 +285,30 @@
     "DRAK_Herald ": "Herald",
     "DRAK_Mule": "Mule",
     "DRAK_Vulture": "Vulture",
+
     "VNCL_Blade": "Blade",
     "VNCL_Glaive": "Glaive",
+    "VNCL_Stinger": "Stinger",
+    "VNCL_Scythe": "Scythe",
+
     "ESPR_Prowler": "Prowler",
     "ESPR_Prowler_Utility": "Prowler Utility",
     "ESPR_Talon": "Talon",
     "ESPR_Talon_Shrike": "Talon Shrike",
+
     "GAMA_Syulen": "Syulen",
+
     "GRIN_MTC": "MTC",
     "GRIN_PTV": "PTV",
     "GRIN_ROC": "ROC",
     "GRIN_ROC_DS": "ROC-DS",
     "GRIN_STV": "STV",
+
     "KRIG_P52_Merlin": "P-52 Merlin",
     "KRIG_P72_Archimedes": "Kruger P-72 Archimedes",
     "KRIG_P72_Archimedes_Emerald": "P-72 Archimedes Emerald",
+    "KRIG_L21_Wolf": "L-21 Wolf",
+
     "AEGS_Avenger_Titan": "Avenger Titan",
     "AEGS_Avenger_Titan_Renegade": "Avenger Titan Renegade",
     "AEGS_Avenger_Stalker": "Avenger Stalker",
@@ -310,6 +332,7 @@
     "AEGS_Vanguard_Hoplite": "Vanguard Hoplite",
     "AEGS_Vanguard_Sentinel": "Vanguard Sentinel",
     "AEGS_Vanguard_Warden": "Vanguard Warden",
+
     "MISC_Fury": "Fury",
     "MISC_Fury_LX": "Fury LX",
     "MISC_Fury_Miru": "Fury LX",
@@ -337,6 +360,7 @@
     "MISC_Starfarer_Gemini": "Starfarer Gemini",
     "MISC_Starlancer_Max": "Starlancer Max",
     "MISC_Starlancer_TAC": "Starlancer Tac",
+
     "ORIG_100i": "100i",
     "ORIG_125a": "125a",
     "ORIG_135c": "135c",
@@ -354,11 +378,13 @@
     "ORIG_X1": "X1",
     "ORIG_X1_Force": "X1 Force",
     "ORIG_X1_Velocity": "X1 Velocity",
+
     "RSI_Aurora_CL": "Aurora CL",
     "RSI_Aurora_ES": "Aurora ES",
     "RSI_Aurora_LN": "Aurora LN",
     "RSI_Aurora_LX": "Aurora LX",
     "RSI_Aurora_MR": "Aurora MR",
+
     "RSI_Constellation_Andromeda": "Constellation Andromeda",
     "RSI_Constellation_Aquila": "Constellation Aquila",
     "RSI_Constellation_Phoenix": "Constellation Phoenix",
@@ -374,6 +400,7 @@
     "RSI_Ursa_Medivac": "Ursa Medivac",
     "RSI_Zeus_CL": "Zeuc Mk2 CL",
     "RSI_Zeus_ES": "Zeus Mk2 ES",
+
     "TMBL_Cyclone": "Cyclone",
     "TMBL_Cyclone_AA": "Cyclone AA",
     "TMBL_Cyclone_MT": "Cyclone MT",
@@ -383,10 +410,11 @@
     "TMBL_Nova": "Nova",
     "TMBL_Storm": "Storm",
     "TMBL_Storm_AA": "Storm AA",
-    "VNCL_Scythe": "Scythe",
+    
     "AEGS_Gladius_PIR": "Gladius Pirate",
     "DRAK_Caterpillar_Pirate": "Caterpillar Pirate",
  
+
     "p2l4_contestedzone": "Checkmate Contested Zone",
     "rs_int_p2l4": "Checkmate",
     "OOC_Stanton_2a_Cellin": "Security Post Kareah",
