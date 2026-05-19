@@ -1,3 +1,5 @@
+#⚠️ THIS PROJECT IS ABANDONED AND NO LONGER MAINTAINED!
+
 # AyeSpy
 
 ## Real-time kill tracker for Star Citizen
